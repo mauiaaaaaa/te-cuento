@@ -1,0 +1,122 @@
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+  let count = 0;
+
+  let lastX = 0, lastY = 0, lastZ = 0;
+  let calibrated = false;
+
+  let lastJumpTime = 0;
+  const COOLDOWN = 700;
+
+  let buffer = [];
+  const BUFFER_SIZE = 5;
+
+  let threshold = 25;
+
+  const counterEl = document.getElementById("counter");
+
+  function updateCounter() {
+    if (counterEl) {
+      counterEl.textContent = count;
+    }
+  }
+
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.min = 10;
+  slider.max = 50;
+  slider.value = threshold;
+  slider.style.marginTop = "20px";
+
+  const label = document.createElement("div");
+  label.innerHTML = "Sensibilidad";
+  label.style.marginTop = "20px";
+
+  document.body.appendChild(label);
+  document.body.appendChild(slider);
+
+  slider.addEventListener("input", () => {
+    threshold = parseInt(slider.value);
+  });
+
+  function getSmoothedDelta(delta) {
+    buffer.push(delta);
+    if (buffer.length > BUFFER_SIZE) buffer.shift();
+
+    let sum = buffer.reduce((a, b) => a + b, 0);
+    return sum / buffer.length;
+  }
+
+  function calibrate(x, y, z) {
+    lastX = x;
+    lastY = y;
+    lastZ = z;
+    calibrated = true;
+  }
+
+  function handleMotion(event) {
+    const acc = event.accelerationIncludingGravity;
+    if (!acc) return;
+
+    let x = acc.x || 0;
+    let y = acc.y || 0;
+    let z = acc.z || 0;
+
+    if (!calibrated) {
+      calibrate(x, y, z);
+      return;
+    }
+
+    let delta =
+      Math.abs(x - lastX) +
+      Math.abs(y - lastY) +
+      Math.abs(z - lastZ);
+
+    let smoothDelta = getSmoothedDelta(delta);
+
+    const now = Date.now();
+
+    if (smoothDelta > threshold && (now - lastJumpTime > COOLDOWN)) {
+      count++;
+      lastJumpTime = now;
+      updateCounter();
+    }
+
+    lastX = x;
+    lastY = y;
+    lastZ = z;
+  }
+
+  const startBtn = document.getElementById("start");
+  const resetBtn = document.getElementById("reset");
+
+  if (startBtn) {
+    startBtn.addEventListener("click", async () => {
+      calibrated = false;
+      buffer = [];
+
+      if (typeof DeviceMotionEvent.requestPermission === "function") {
+        try {
+          const response = await DeviceMotionEvent.requestPermission();
+          if (response !== "granted") return;
+        } catch (e) {
+          return;
+        }
+      }
+
+      window.addEventListener("devicemotion", handleMotion);
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      count = 0;
+      updateCounter();
+    });
+  }
+
+  updateCounter();
+
+});
+</script>
