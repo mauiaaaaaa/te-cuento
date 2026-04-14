@@ -1,122 +1,139 @@
-<script>
-document.addEventListener("DOMContentLoaded", () => {
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Contador de Saltos</title>
 
-  let count = 0;
-
-  let lastX = 0, lastY = 0, lastZ = 0;
-  let calibrated = false;
-
-  let lastJumpTime = 0;
-  const COOLDOWN = 700;
-
-  let buffer = [];
-  const BUFFER_SIZE = 5;
-
-  let threshold = 25;
-
-  const counterEl = document.getElementById("counter");
-
-  function updateCounter() {
-    if (counterEl) {
-      counterEl.textContent = count;
-    }
-  }
-
-  const slider = document.createElement("input");
-  slider.type = "range";
-  slider.min = 10;
-  slider.max = 50;
-  slider.value = threshold;
-  slider.style.marginTop = "20px";
-
-  const label = document.createElement("div");
-  label.innerHTML = "Sensibilidad";
-  label.style.marginTop = "20px";
-
-  document.body.appendChild(label);
-  document.body.appendChild(slider);
-
-  slider.addEventListener("input", () => {
-    threshold = parseInt(slider.value);
-  });
-
-  function getSmoothedDelta(delta) {
-    buffer.push(delta);
-    if (buffer.length > BUFFER_SIZE) buffer.shift();
-
-    let sum = buffer.reduce((a, b) => a + b, 0);
-    return sum / buffer.length;
-  }
-
-  function calibrate(x, y, z) {
-    lastX = x;
-    lastY = y;
-    lastZ = z;
-    calibrated = true;
-  }
-
-  function handleMotion(event) {
-    const acc = event.accelerationIncludingGravity;
-    if (!acc) return;
-
-    let x = acc.x || 0;
-    let y = acc.y || 0;
-    let z = acc.z || 0;
-
-    if (!calibrated) {
-      calibrate(x, y, z);
-      return;
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #111;
+      color: white;
+      padding-top: 50px;
     }
 
-    let delta =
-      Math.abs(x - lastX) +
-      Math.abs(y - lastY) +
-      Math.abs(z - lastZ);
-
-    let smoothDelta = getSmoothedDelta(delta);
-
-    const now = Date.now();
-
-    if (smoothDelta > threshold && (now - lastJumpTime > COOLDOWN)) {
-      count++;
-      lastJumpTime = now;
-      updateCounter();
+    #counter {
+      font-size: 70px;
+      margin: 20px;
     }
 
-    lastX = x;
-    lastY = y;
-    lastZ = z;
-  }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      margin: 10px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
 
-  const startBtn = document.getElementById("start");
-  const resetBtn = document.getElementById("reset");
+    #start { background: #28a745; color: white; }
+    #reset { background: #dc3545; color: white; }
+  </style>
+</head>
 
-  if (startBtn) {
-    startBtn.addEventListener("click", async () => {
+<body>
+
+  <h1>📱 Contador de saltos</h1>
+
+  <div id="counter">0</div>
+
+  <button id="start">Iniciar</button>
+  <button id="reset">Reset</button>
+
+  <script>
+    let count = 0;
+
+    let lastX = 0, lastY = 0, lastZ = 0;
+    let calibrated = false;
+
+    let lastJumpTime = 0;
+    const COOLDOWN = 700;
+
+    let buffer = [];
+    const BUFFER_SIZE = 5;
+
+    let threshold = 12;
+
+    const counterEl = document.getElementById("counter");
+
+    function updateCounter() {
+      if (counterEl) counterEl.textContent = count;
+    }
+
+    function getSmoothedDelta(delta) {
+      buffer.push(delta);
+      if (buffer.length > BUFFER_SIZE) buffer.shift();
+
+      let sum = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        sum += buffer[i];
+      }
+
+      return sum / buffer.length;
+    }
+
+    function handleMotion(event) {
+      const acc = event.accelerationIncludingGravity;
+      if (!acc) return;
+
+      const x = acc.x || 0;
+      const y = acc.y || 0;
+      const z = acc.z || 0;
+
+      if (!calibrated) {
+        lastX = x;
+        lastY = y;
+        lastZ = z;
+        calibrated = true;
+        return;
+      }
+
+      const delta =
+        Math.abs(x - lastX) +
+        Math.abs(y - lastY) +
+        Math.abs(z - lastZ);
+
+      const smoothDelta = getSmoothedDelta(delta);
+      const finalDelta = Math.max(smoothDelta, delta);
+
+      const now = Date.now();
+
+      if (finalDelta > threshold && (now - lastJumpTime > COOLDOWN)) {
+        count++;
+        lastJumpTime = now;
+        updateCounter();
+      }
+
+      lastX = x;
+      lastY = y;
+      lastZ = z;
+    }
+
+    document.getElementById("start").addEventListener("click", async () => {
       calibrated = false;
       buffer = [];
 
-      if (typeof DeviceMotionEvent.requestPermission === "function") {
-        try {
+      try {
+        if (typeof DeviceMotionEvent.requestPermission === "function") {
           const response = await DeviceMotionEvent.requestPermission();
           if (response !== "granted") return;
-        } catch (e) {
-          return;
         }
+
+        window.addEventListener("devicemotion", handleMotion);
+
+      } catch (e) {
+        console.log("error sensor");
       }
-
-      window.addEventListener("devicemotion", handleMotion);
     });
-  }
 
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
+    document.getElementById("reset").addEventListener("click", () => {
       count = 0;
       updateCounter();
     });
-  }
 
-  updateCounter();
+    updateCounter();
+  </script>
 
-});
-</script>
+</body>
+</html>
